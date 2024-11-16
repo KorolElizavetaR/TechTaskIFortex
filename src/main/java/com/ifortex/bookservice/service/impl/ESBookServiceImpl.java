@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,22 +33,19 @@ public class ESBookServiceImpl implements BookService {
 
 	@Override
 	public Map<String, Long> getBooks() {
-		
-		CriteriaBuilder cb = em.getCriteriaBuilder();
-		CriteriaQuery<Tuple> query = cb.createTupleQuery();
-		Root<Book> book = query.from(Book.class);
+		String nativeSQL = """
+			    SELECT genre_dist AS genre, COUNT(*) AS counter
+			    FROM books, UNNEST(genre) AS genre_dist
+			    GROUP BY genre_dist
+			    ORDER BY counter DESC
+			""";
 
-		Expression<String> genreUnnest = cb.function("unnest", String.class, book.get("genres"));
-		Expression<Long> bookCount = cb.count(book);
-
-		query.multiselect(genreUnnest, bookCount).groupBy(genreUnnest).orderBy(cb.desc(bookCount));
-
-		List<Tuple> resultList = em.createQuery(query).getResultList();
-
-		Map<String, Long> genreCounts = resultList.stream()
-				.collect(Collectors.toMap(tuple -> tuple.get(0, String.class), tuple -> tuple.get(1, Long.class)));
-
-		return genreCounts;
+	return (Map<String, Long>) em.createNativeQuery(nativeSQL).getResultList().stream()
+			.collect(Collectors.toMap(
+					result -> (String) ((Object[]) result)[0],
+					result -> (Long) ((Object[]) result)[1], 
+					(oldValue, newValue) -> oldValue, 
+					LinkedHashMap::new));
 	}
 
 	@Override
