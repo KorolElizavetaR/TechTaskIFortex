@@ -10,12 +10,15 @@ import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +53,47 @@ public class ESBookServiceImpl implements BookService {
 
 	@Override
 	public List<Book> getAllByCriteria(SearchCriteria searchCriteria) {
-		// will be implemented shortly
-		return List.of();
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+
+		CriteriaQuery<Book> cr = cb.createQuery(Book.class);
+		Root<Book> root = cr.from(Book.class);
+
+		List<Predicate> predicate = new ArrayList<>();
+
+		String title = searchCriteria.getTitle();
+		if (title != null) {
+			title = title.trim();
+			predicate.add(cb.like(root.get("title"), String.format("%%%s%%", title)));
+		}
+
+		String author = searchCriteria.getAuthor();
+		if (author != null) {
+			author = author.trim();
+			predicate.add(cb.like(root.get("author"), String.format("%%%s%%", author)));
+		}
+
+		String genre = searchCriteria.getGenre();
+		if (genre != null) {
+			predicate.add(cb.like(
+					cb.concat("|", cb.concat(
+							cb.function("array_to_string", String.class, root.get("genres"), cb.literal("|")), "|")),
+					cb.literal(String.format("%%|%s|%%", genre))));
+		}
+
+		String description = searchCriteria.getDescription();
+		if (description != null) {
+			description = description.trim();
+			predicate.add(cb.like(root.get("description"), String.format("%%%s%%", description)));
+		}
+
+		Integer year = searchCriteria.getYear();
+		if (year != null) {
+			LocalDateTime startOfYear = LocalDateTime.of(year, 1, 1, 0, 0, 0);
+			LocalDateTime endOfYear = LocalDateTime.of(year, 12, 31, 23, 59, 59);
+			predicate.add(cb.between(root.get("publicationDate"), startOfYear, endOfYear));
+		}
+
+		cr.select(root).where(cb.and(predicate.toArray(new Predicate[0])));
+		return em.createQuery(cr).getResultList();
 	}
 }
