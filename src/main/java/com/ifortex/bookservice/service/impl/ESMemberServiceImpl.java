@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,7 +57,18 @@ public class ESMemberServiceImpl implements MemberService {
 
 	@Override
 	public List<Member> findMembers() {
-		// will be implemented shortly
-		return List.of();
+		int regYear = 2023;
+		LocalDateTime startOfYear = LocalDateTime.of(regYear, 1, 1, 0, 0, 0);
+		LocalDateTime endOfYear = LocalDateTime.of(regYear, 12, 31, 23, 59, 59);
+
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Member> query = cb.createQuery(Member.class);
+		Root<Member> root = query.from(Member.class);
+		Join<Member, Book> joinMemberBook = root.join("borrowedBooks", JoinType.LEFT);
+
+		query.select(root).where(cb.and(cb.between(root.get("membershipDate"), startOfYear, endOfYear),
+				cb.isNull(joinMemberBook.get("id"))));
+
+		return em.createQuery(query).getResultList();
 	}
 }

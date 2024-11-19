@@ -6,10 +6,8 @@ import com.ifortex.bookservice.service.BookService;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
@@ -37,18 +35,15 @@ public class ESBookServiceImpl implements BookService {
 	@Override
 	public Map<String, Long> getBooks() {
 		String nativeSQL = """
-			    SELECT genre_dist AS genre, COUNT(*) AS counter
-			    FROM books, UNNEST(genre) AS genre_dist
-			    GROUP BY genre_dist
-			    ORDER BY counter DESC
-			""";
+				    SELECT genre_dist AS genre, COUNT(*) AS counter
+				    FROM books, UNNEST(genre) AS genre_dist
+				    GROUP BY genre_dist
+				    ORDER BY counter DESC
+				""";
 
-	return (Map<String, Long>) em.createNativeQuery(nativeSQL).getResultList().stream()
-			.collect(Collectors.toMap(
-					result -> (String) ((Object[]) result)[0],
-					result -> (Long) ((Object[]) result)[1], 
-					(oldValue, newValue) -> oldValue, 
-					LinkedHashMap::new));
+		return (Map<String, Long>) em.createNativeQuery(nativeSQL).getResultList().stream()
+				.collect(Collectors.toMap(result -> (String) ((Object[]) result)[0],
+						result -> (Long) ((Object[]) result)[1], (oldValue, newValue) -> oldValue, LinkedHashMap::new));
 	}
 
 	@Override
